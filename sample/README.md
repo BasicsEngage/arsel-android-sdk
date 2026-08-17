@@ -9,14 +9,14 @@ real integrator would. This is the test sandbox — no production app required.
 
 ---
 
-> 📖 **Step-by-step setup and what each diagnostics field means: [`PUSH-HARNESS.md`](PUSH-HARNESS.md).**
+> 📖 **Step-by-step setup and what each diagnostics field means: [`HARNESS.md`](HARNESS.md).**
 
 ## What you need
 
 - **Android Studio** + the bundled **JDK 17+**.
 - An emulator image **that includes Google Play** — FCM needs Google Play services. Android push works
   fine on an emulator; no physical phone required. (iOS is a different story and needs real hardware.)
-- A **Firebase project you control**. In production every customer brings their own (Model A).
+- A **Firebase project you control**. In production every customer brings their own.
 - For the full round trip: an **Arsel org with push enabled** — create a push app in your Arsel
   dashboard, or contact Arsel to enable push for your org.
 
@@ -150,7 +150,7 @@ POST {baseUrl}/v1/push/devices    (API-key authenticated)
 **Client-asserted (no backend needed).** Type an external ID into the app's *Identity* section and
 press **identify(externalId = …)**. Everything tracked beforehand under the anonymous identity merges
 onto that contact. This is the app making a claim, which is right for an id your own app already
-holds — see the trust-boundary table in `PUSH-HARNESS.md` §5.
+holds — see the trust-boundary table in [`HARNESS.md`](HARNESS.md).
 
 ---
 
@@ -206,4 +206,4 @@ cross-repo token, so the workflow goes green once both repos are public.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](../LICENSE).

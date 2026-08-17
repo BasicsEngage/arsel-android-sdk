@@ -12,7 +12,7 @@
       the secret by hash with no device binding, two devices then authenticate as one subscription.
 
       A host that declares its OWN backup rules will hit a manifest-merger conflict here — that is
-      deliberate and the resolution is documented in INTEGRATION-GUIDE.md: copy the two <exclude>
+      deliberate and the resolution is documented in docs/troubleshooting.md: copy the <exclude>
       lines into their rules and add tools:replace. Silently losing the exclusion would be worse.
     -->
     <application

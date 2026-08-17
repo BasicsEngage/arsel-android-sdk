@@ -31,7 +31,6 @@ delivery needs push.
 
 | | |
 | --- | --- |
-| **[Integration guide](INTEGRATION-GUIDE.md)** | Build, publish, and add the SDK to an app. Start here. |
 | **[Events](docs/events.md)** | Custom events, properties, limits, reserved events, sessions, durability. |
 | **[Identity](docs/identity.md)** | Anonymous → identified, the identifier ladder, merges, `reset()` vs `optOut()`. |
 | **[Push notifications](docs/push-notifications.md)** | Channels, icons, permission, actions, deep links, engagement. |
@@ -120,4 +119,4 @@ export JAVA_HOME=/usr/lib/jvm/<jdk>     # the directory, not .../bin/java
 
 Needs a `local.properties` with `sdk.dir=` (gitignored).
 
-Publishing channels and their trade-offs are in [INTEGRATION-GUIDE.md](INTEGRATION-GUIDE.md#a-build--publish-the-sdk-arsel).
+Release and publishing steps are in [RELEASING.md](RELEASING.md).

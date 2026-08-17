@@ -173,6 +173,47 @@ reinstalled handset becomes reachable again. Call `optOut()` again if it should 
 Your app and the SDK both declare a `FirebaseMessagingService`. Remove ours and forward — see
 [Push notifications](push-notifications.md#hosts-with-their-own-firebasemessagingservice).
 
+### Manifest merger fails on `android:fullBackupContent` / `android:dataExtractionRules`
+
+Your app declares its own backup rules and so does the SDK, so the merger refuses to pick one. The
+conflict is deliberate: the SDK excludes its stored `installationId` and one-time `deviceSecret`
+from backup, and silently dropping that exclusion is worse than a build failure. Auto Backup or a
+device transfer would otherwise clone both onto a second handset, and because the server verifies
+the secret by hash with no device binding, the two handsets would then authenticate as the same
+subscription.
+
+Keep your own rules and carry the exclusion across. Both transports must be named separately —
+`<cloud-backup>` is Google's backup, `<device-transfer>` is the direct handset-to-handset copy, and
+device transfer is the one that clones a secret onto a phone the user still holds the original of:
+
+```xml
+<!-- your res/xml/data_extraction_rules.xml (Android 12+) -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="arsel_push.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="arsel_push.xml" />
+    </device-transfer>
+</data-extraction-rules>
+```
+
+```xml
+<!-- your res/xml/backup_rules.xml (Android 11 and below) -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="arsel_push.xml" />
+</full-backup-content>
+```
+
+Then tell the merger yours wins:
+
+```xml
+<application
+    android:fullBackupContent="@xml/backup_rules"
+    android:dataExtractionRules="@xml/data_extraction_rules"
+    tools:replace="android:fullBackupContent,android:dataExtractionRules">
+```
+
 ### `Task :app:processDebugGoogleServices` fails
 
 `google-services.json` is missing, or its package name doesn't match your `applicationId` — including

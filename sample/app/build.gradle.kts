@@ -30,7 +30,7 @@ android {
             resValue("string", "app_name", "Arsel Sample (staging)")
             // Point this at the test/sandbox environment Arsel gives you. Must be HTTPS.
             buildConfigField("String", "ARSEL_BASE_URL", "\"REPLACE_WITH_STAGING_BASE_URL\"")
-            // The test org's publishable pub_ key (see PUSH-HARNESS.md §2).
+            // The test org's publishable pub_ key (see HARNESS.md).
             buildConfigField("String", "ARSEL_CLIENT_KEY", "\"REPLACE_WITH_STAGING_CLIENT_KEY\"")
         }
         create("prod") {

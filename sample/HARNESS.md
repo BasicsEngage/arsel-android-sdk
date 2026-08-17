@@ -4,10 +4,6 @@ This app is the end-to-end harness for the Arsel Android SDK. Everything on scre
 through the SDK's own public surface (`getInstallationId()`, `diagnostics()`), so what you see is
 exactly what an integrator can see in the field.
 
-Companion doc:
-[`arsel-android-sdk/PUSH-HARNESS.md`](https://github.com/BasicsEngage/arsel-android-sdk/blob/main/PUSH-HARNESS.md)
-(build the SDK).
-
 ---
 
 ## 1. Publish the SDK first
