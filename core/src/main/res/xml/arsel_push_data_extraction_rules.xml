@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ (android:dataExtractionRules). Same exclusion as arsel_push_backup_rules.xml, but both
+  transports have to be named separately: <cloud-backup> is Google's backup, <device-transfer> is
+  the direct handset-to-handset copy (Smart Switch and friends) — and device transfer is the one
+  that actually clones a device secret onto a phone the user is still holding the original of.
+
+  Only excludes are listed: everything else the host app stores is still copied normally.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="arsel_push.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="arsel_push.xml" />
+    </device-transfer>
+</data-extraction-rules>

@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # Holds the job for a human approval before the upload runs. The Central
+    # deployment still waits for a manual Publish afterwards; this gate is the
+    # earlier one, catching a bad tag before any artifact is built or signed.
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+
+      # Fail fast, before anything is published. Secret setup lives in RELEASING.md.
+      - name: Verify publishing secrets are configured
+        env:
+          CENTRAL_USERNAME: ${{ secrets.ORG_GRADLE_PROJECT_mavenCentralUsername }}
+          CENTRAL_PASSWORD: ${{ secrets.ORG_GRADLE_PROJECT_mavenCentralPassword }}
+          SIGNING_KEY: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKey }}
+        run: |
+          if [ -z "$CENTRAL_USERNAME" ] || [ -z "$CENTRAL_PASSWORD" ] || [ -z "$SIGNING_KEY" ]; then
+            echo "::error::Maven Central secrets are not configured on this repository — see RELEASING.md for the one-time setup."
+            exit 1
+          fi
+
+      - name: Verify tag matches VERSION_NAME
+        run: |
+          VERSION=$(grep '^VERSION_NAME=' gradle.properties | cut -d= -f2)
+          if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match VERSION_NAME=$VERSION in gradle.properties."
+            exit 1
+          fi
+
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { found = 1; next }
+            /^## \[/ && found { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "::error::CHANGELOG.md has no \"## [$VERSION]\" section — add one before tagging."
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Run the full test suite
+        run: ./gradlew test
+
+      # Uploads and validates, then STOPS: the deployment sits in the Central Portal
+      # awaiting a manual Publish. Deliberate for the first release into a new
+      # namespace — a Central artifact is permanent and can never be replaced, only
+      # superseded. Switch back to `publishAndReleaseToMavenCentral` to auto-release.
+      - name: Upload to Maven Central (manual release)
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.ORG_GRADLE_PROJECT_mavenCentralUsername }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.ORG_GRADLE_PROJECT_mavenCentralPassword }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKey }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKeyPassword }}
+        run: ./gradlew publishToMavenCentral
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --notes-file release-notes.md

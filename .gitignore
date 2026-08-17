@@ -1,0 +1,18 @@
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+# Firebase config for the sample app (never commit real credentials)
+sample/google-services.json
+
+# Kotlin incremental-compilation cache (AGP 8.x writes this at the project root)
+.kotlin/
+
+# Agent guidance, not part of the published SDK
+CLAUDE.md
+**/CLAUDE.md

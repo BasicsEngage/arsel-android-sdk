@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # Android Lint is the cross-version check. The unit tests run against the mockable
+  # android.jar, which has no notion of API levels, so nothing there can catch a
+  # framework call that is missing its `Build.VERSION` guard — `NewApi` can, statically,
+  # across the whole minSdk 23 → SDK 35 range and without an emulator.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: ktlint + Android Lint
+        run: ./gradlew ktlintCheck lintRelease
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build and test
+        run: ./gradlew assembleDebug test
+
+      # The sample is a separate Gradle build that resolves the SDK from
+      # mavenLocal, exactly as an integrator resolves it from Maven Central —
+      # so it has to be published before it can be built.
+      - name: Publish the SDK to mavenLocal
+        run: ./gradlew publishToMavenLocal
+
+      - name: Point the sample at the runner's SDK
+        run: echo "sdk.dir=$ANDROID_HOME" > sample/local.properties
+
+      # Fake ids: the google-services plugin validates structure, not authenticity.
+      - name: Install the CI Firebase config
+        run: cp sample/ci/google-services.ci.json sample/app/google-services.json
+
+      - name: Build the sample
+        run: cd sample && ./gradlew :app:assembleStagingDebug

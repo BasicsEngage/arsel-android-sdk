@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Auto Backup rules, Android 11 and below (android:fullBackupContent).
+
+  The SDK's SharedPreferences file holds the installationId AND the one-time deviceSecret. The
+  server's auth check is a hash compare with no device binding, so a cloud backup restored onto a
+  second handset would give two devices the same credentials for one subscription — each able to
+  forge the other's engagement, and each cancelling the other's opt-out. Excluding the file means a
+  restored device simply registers as a new installation, which is the truth.
+
+  Only excludes are listed: everything else the host app stores is still backed up normally.
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="arsel_push.xml" />
+</full-backup-content>

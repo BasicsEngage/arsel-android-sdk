@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <!--
+          Drop-in FCM service (auto-registered from the LIBRARY manifest — the host adds nothing).
+          A host that already owns a FirebaseMessagingService should remove this with
+          tools:node="remove" and call Arsel.setPushToken / Arsel.handlePushData from theirs.
+        -->
+        <service
+            android:name="sa.arsel.push.fcm.ArselPushService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- App Startup: set the FCM bridge before Application.onCreate. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="sa.arsel.push.fcm.ArselFcmInitializer"
+                android:value="androidx.startup" />
+        </provider>
+    </application>
+</manifest>

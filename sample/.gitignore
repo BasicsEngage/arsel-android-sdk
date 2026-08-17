@@ -1,0 +1,15 @@
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+.DS_Store
+
+# Kotlin incremental-compilation cache
+.kotlin/
+
+# Each integrator supplies their OWN Firebase config, one per flavor — never commit real
+# credentials. A file at app/ (rather than app/src/<flavor>/) is picked up by BOTH flavors,
+# which is exactly the cross-environment credential sharing the flavor split prevents.
+app/src/*/google-services.json
+app/google-services.json

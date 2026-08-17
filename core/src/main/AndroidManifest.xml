@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Android 13+. The HOST app's targetSdk decides whether the OS enforces it. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
+      Backup exclusion for the SDK's prefs (installationId + the one-time deviceSecret). Without it
+      Auto Backup / device transfer clones both onto a second handset, and since the server checks
+      the secret by hash with no device binding, two devices then authenticate as one subscription.
+
+      A host that declares its OWN backup rules will hit a manifest-merger conflict here — that is
+      deliberate and the resolution is documented in INTEGRATION-GUIDE.md: copy the two <exclude>
+      lines into their rules and add tools:replace. Silently losing the exclusion would be worse.
+    -->
+    <application
+        android:dataExtractionRules="@xml/arsel_push_data_extraction_rules"
+        android:fullBackupContent="@xml/arsel_push_backup_rules"
+        tools:targetApi="s">
+        <!--
+          Trampoline-safe tap target (Android 12+ forbids Service/Receiver -> Activity hops).
+          No UI; fires the OPENED/CLICKED beacon, then routes to the deep link / launcher.
+        -->
+        <activity
+            android:name="sa.arsel.core.notification.NotificationTapActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!--
+          Delete-intent target: the only way Android reports a swipe-away. Explicit component and
+          not exported, so the API 26+ implicit-broadcast restrictions never apply to it.
+        -->
+        <receiver
+            android:name="sa.arsel.core.notification.NotificationDismissReceiver"
+            android:exported="false" />
+    </application>
+</manifest>
