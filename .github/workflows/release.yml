@@ -10,9 +10,6 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # Holds the job for a human approval before the upload runs. The Central
-    # deployment still waits for a manual Publish afterwards; this gate is the
-    # earlier one, catching a bad tag before any artifact is built or signed.
     environment: release
     steps:
       - uses: actions/checkout@v4
