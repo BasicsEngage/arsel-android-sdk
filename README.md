@@ -97,7 +97,8 @@ a secret API key does, so it is safe to compile into an APK. **Your secret API k
 can unzip an APK.
 
 `reset()` and `optOut()` are deliberately different calls. Calling `optOut()` on logout would leave
-the handset permanently unreachable: a user who signs back in would never receive push again.
+the handset unreachable for the life of the install: a user who signs back in would not receive push
+again. See [Identity](docs/identity.md#logout-vs-opt-out).
 
 ## Module layout
 
