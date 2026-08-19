@@ -36,6 +36,13 @@ import sa.arsel.core.notification.RenderResult
 public object Arsel {
     private const val TAG = "Arsel"
 
+    /** Reserved push data key: refresh the in-app catalogue and render nothing. */
+    private const val KEY_IAM_SYNC = "arsel_iam_sync"
+
+    /** Reserved event name for a screen view; the screen itself travels as a property. */
+    private const val EVENT_SCREEN_VIEW = "arsel.screen_view"
+    private const val PROP_SCREEN_NAME = "screen_name"
+
     /** Glue set by the push-fcm module (via App Startup) so [initialize] can fetch the token. */
     public interface FcmBridge {
         public fun requestCurrentToken()
@@ -159,6 +166,42 @@ public object Arsel {
         }
 
     /**
+     * Record a screen view.
+     *
+     * One event, two consumers: it reaches segments and automations exactly as [track] would, and
+     * it is the trigger source for screen-scoped in-app messages. Deliberately not a [track] call
+     * with a convention name — the backend treats a screen view and a custom event of the same name
+     * as different trigger types, and collapsing them would fire screen-scoped messages everywhere.
+     */
+    @JvmStatic
+    @JvmOverloads
+    public fun screen(
+        name: String,
+        properties: Map<String, Any?> = emptyMap(),
+    ): Unit =
+        guarded {
+            val trimmed = name.trim()
+            if (trimmed.isNotEmpty()) {
+                Registry.events.trackReserved(
+                    EVENT_SCREEN_VIEW,
+                    properties + mapOf(PROP_SCREEN_NAME to trimmed),
+                )
+            }
+        }
+
+    /**
+     * Hold in-app messages back, or let them through again.
+     *
+     * For the moments a host knows are wrong — a checkout step, a video playing full screen. Not
+     * persisted: it describes the current screen, not the device.
+     */
+    @JvmStatic
+    public fun setInAppMessagingEnabled(enabled: Boolean): Unit =
+        guarded {
+            Registry.inApp.setSuppressed(!enabled)
+        }
+
+    /**
      * The identity events carry before anyone logs in. Rotated by [reset] so a shared handset does
      * not hand the next user the previous one's history.
      *
@@ -248,6 +291,16 @@ public object Arsel {
             return false
         }
         return runCatching {
+            // Before fromData, and before everything after it. A sync ping carries no arsel_mid, so
+            // fromData would return null and this method would answer false — telling a host that
+            // multiplexes its own messaging service the message was not ours. It must also precede
+            // claimMessage, which would burn a slot in the capped seen-list keyed on an id that
+            // does not exist, and the unconditional DELIVERED below, which would book delivery
+            // against a campaign message that was never sent.
+            if (!data[KEY_IAM_SYNC].isNullOrBlank()) {
+                Registry.inApp.onSyncRequested()
+                return@runCatching true
+            }
             val msg = ArselPushMessage.fromData(data) ?: return false
             val now = System.currentTimeMillis()
             // Atomic claim: two redeliveries can land on two binder threads at once.

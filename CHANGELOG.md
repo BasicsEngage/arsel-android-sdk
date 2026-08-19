@@ -8,6 +8,44 @@ version: additive changes ship as minor releases, and anything breaking waits fo
 
 ---
 
+## [1.1.0] — 2026-08-19
+
+### In-app messaging
+
+Messages authored in Arsel now render inside the host app, with no notification permission and no
+prompt of any kind.
+
+The division of labour is the design: the server resolves audience, consent, campaign window,
+grants and lifetime caps into a per-device catalogue, and the SDK evaluates only the trigger and
+its session-scoped caps locally — so drawing a message costs no network round-trip and works with
+no connection at all.
+
+- Four trigger types resolve from events the SDK already emits: app open (from
+  `arsel.session_start`, not the raw foreground callback, which is rate-limited and would fire for
+  a two-second tab-out), screen views, and custom events.
+- `Arsel.screen(name, properties)` — records a screen view. One event, two consumers: it reaches
+  segments and automations exactly as `track()` does, and it is the trigger source for
+  screen-scoped messages. Deliberately not a `track()` convention name, because the backend treats
+  a screen view and a custom event of the same name as different trigger types.
+- `Arsel.setInAppMessagingEnabled(enabled)` — holds messages back for the moments a host knows are
+  wrong, such as a checkout step. Not persisted: it describes the current screen, not the device.
+- Five layouts — modal, top and bottom banners, fullscreen, image-only — drawn in code rather than
+  from XML, so the library ships no layout resources to collide with a host app's own.
+- Impressions, clicks and dismissals are reported through the existing durable queue, so they
+  survive an offline spell and process death. An impression is recorded only once the view is
+  actually attached: a message abandoned during its delay window leaves no trace at all.
+- A reserved `arsel_iam_sync` push refreshes the catalogue and renders nothing. It is handled
+  before the message parse, the claim and the delivered engagement, so a sync ping can never book
+  delivery against a campaign that was never sent.
+
+### Changed
+
+- `ApiClient` gains a conditional `get()`, and `classify()` now treats `304 Not Modified` as a
+  success. Without that branch a conditional request falls through to a permanent failure and the
+  cache is discarded on every successful revalidation — the opposite of what the request asks for.
+- `ForegroundWatcher` tracks the resumed Activity behind a `WeakReference`, so a message is drawn
+  into the screen actually in front of the user rather than one sitting behind a dialog.
+
 ## [1.0.0] — 2026-08-17
 
 First public release. Two subsystems in one artifact, deliberately independent of each other.

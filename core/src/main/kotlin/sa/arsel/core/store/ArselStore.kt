@@ -125,6 +125,35 @@ internal class ArselStore(private val prefs: SharedPreferences) {
             prefs.edit().putLong(KEY_SESSION_STARTED_AT, v).commit()
         }
 
+    // --- in-app messaging ---
+
+    /** The whole cached catalogue as one JSON blob, mirroring how the request queue is stored. */
+    var inAppCatalogue: String?
+        get() = prefs.getString(KEY_IAM_CATALOGUE, null)
+        set(v) {
+            prefs.edit().putString(KEY_IAM_CATALOGUE, v).apply()
+        }
+
+    /**
+     * Per-message lifetime counters, as one JSON blob.
+     *
+     * Deliberately NOT cleared by [clearIdentity]: it records what this DEVICE has already shown a
+     * person, and a logout that reset it would let the next user be shown the same message from
+     * zero.
+     */
+    var inAppState: String?
+        get() = prefs.getString(KEY_IAM_STATE, null)
+        set(v) {
+            prefs.edit().putString(KEY_IAM_STATE, v).apply()
+        }
+
+    /** `{ startedAt, counts }` — session-scoped display counts, so a cap survives process death. */
+    var inAppSession: String?
+        get() = prefs.getString(KEY_IAM_SESSION, null)
+        set(v) {
+            prefs.edit().putString(KEY_IAM_SESSION, v).apply()
+        }
+
     /** Returned by the backend exactly once, on first registration. Losing it is unrecoverable. */
     var deviceSecret: String?
         get() = prefs.getString(KEY_DEVICE_SECRET, null)
@@ -340,6 +369,9 @@ internal class ArselStore(private val prefs: SharedPreferences) {
                     .remove(KEY_IDENTIFIED_PHONE)
                     .remove(KEY_BACKGROUNDED_AT)
                     .remove(KEY_SESSION_STARTED_AT)
+                    .remove(KEY_IAM_CATALOGUE)
+                    .remove(KEY_IAM_STATE)
+                    .remove(KEY_IAM_SESSION)
                     .remove(KEY_DEVICE_SECRET)
                     .remove(KEY_SUBSCRIPTION_ID)
                     .remove(KEY_SUBSCRIPTION_STATUS)
@@ -376,6 +408,9 @@ internal class ArselStore(private val prefs: SharedPreferences) {
         const val KEY_IDENTIFIED_PHONE = "identified_phone"
         const val KEY_BACKGROUNDED_AT = "backgrounded_at"
         const val KEY_SESSION_STARTED_AT = "session_started_at"
+        const val KEY_IAM_CATALOGUE = "iam_catalogue"
+        const val KEY_IAM_STATE = "iam_state"
+        const val KEY_IAM_SESSION = "iam_session"
         const val KEY_DEVICE_SECRET = "device_secret"
         const val KEY_SUBSCRIPTION_ID = "subscription_id"
         const val KEY_SUBSCRIPTION_STATUS = "subscription_status"

@@ -81,6 +81,52 @@ internal class ApiClient(
         }
     }
 
+    /**
+     * Conditional GET, for the in-app message catalogue.
+     *
+     * A separate method rather than a mode flag on [post]: `doOutput = true` there forces POST
+     * semantics onto HttpsURLConnection, so that method cannot be coerced into a GET even with an
+     * empty body. This is also the only request in the SDK whose 304 is a success.
+     */
+    fun get(
+        path: String,
+        extraHeaders: Map<String, String> = emptyMap(),
+        authenticated: Boolean = false,
+    ): Response {
+        var conn: HttpsURLConnection? = null
+        return try {
+            conn =
+                (URL(baseUrl + path).openConnection() as HttpsURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = timeoutMs.toInt()
+                    readTimeout = timeoutMs.toInt()
+                    setRequestProperty("Accept", "application/json")
+                    setRequestProperty(HEADER_SDK, "android/${BuildConfig.SDK_VERSION}")
+                    extraHeaders.forEach { (name, value) -> setRequestProperty(name, value) }
+                }
+
+            val code = conn.responseCode
+            val result = classify(code, authenticated)
+            // A 304 is a success carrying no body at all; asking for the stream would only ever
+            // yield null.
+            val body =
+                when {
+                    code == HTTP_NOT_MODIFIED -> null
+                    result == Result.SUCCESS -> readBounded(conn.inputStream)
+                    else -> readBounded(conn.errorStream)
+                }
+            if (result != Result.SUCCESS) {
+                log.w("GET $path -> $code ($result)${body?.take(ERROR_SNIPPET_CHARS)?.let { "; $it" }.orEmpty()}")
+            }
+            Response(result, code, body, parseRetryAfterMs(conn.getHeaderField(HEADER_RETRY_AFTER)))
+        } catch (t: Throwable) {
+            log.w("GET $path failed (network) — will retry", t)
+            Response(Result.RETRYABLE, CODE_NO_RESPONSE, null, null)
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
     private fun readBounded(stream: InputStream?): String? =
         runCatching {
             stream?.bufferedReader()?.use(BufferedReader::readText)?.take(MAX_BODY_CHARS)
@@ -98,6 +144,10 @@ internal class ApiClient(
         ): Result =
             when {
                 code in HTTP_OK..HTTP_SUCCESS_MAX -> Result.SUCCESS
+                // The cached in-app catalogue is still current. Without this branch a conditional
+                // GET falls through to PERMANENT below and the cache is discarded on every
+                // successful revalidation — the opposite of what the request asked for.
+                code == HTTP_NOT_MODIFIED -> Result.SUCCESS
                 code == HTTP_TIMEOUT || code == HTTP_TOO_MANY_REQUESTS ||
                     code in HTTP_SERVER_ERROR_MIN..HTTP_SERVER_ERROR_MAX -> Result.RETRYABLE
                 // On an authed route these all mean the same thing behind the backend's deliberately
@@ -145,6 +195,10 @@ internal class ApiClient(
         private const val MILLIS_PER_SECOND = 1000L
         private const val MAX_BODY_CHARS = 4096
         private const val ERROR_SNIPPET_CHARS = 200
+
+        /** Public: the catalogue fetch branches on it before reading a body. */
+        const val HTTP_NOT_MODIFIED = 304
+
         private const val HTTP_OK = 200
         private const val HTTP_SUCCESS_MAX = 299
         private const val HTTP_UNAUTHORIZED = 401

@@ -26,6 +26,12 @@ internal class EventController(
     /** [RequestQueue.enqueue]. Taken as a function so the JVM tests need no Android Context. */
     private val enqueue: (QueuedRequest) -> Unit,
     private val log: ArselLog,
+    /**
+     * Notified after an event is durably queued. This is the only place that sees every event
+     * exactly once — downstream of the blank and reserved-prefix rejects, downstream of the trim,
+     * and never on a retry, because retries live entirely in the drain re-reading the store.
+     */
+    private val onEvent: ((String, Map<String, Any?>, Long) -> Unit)? = null,
 ) {
     fun track(
         name: String,
@@ -84,5 +90,11 @@ internal class EventController(
             ),
         )
         log.d("event '$name' enqueued")
+        // Last: an observer must never see an event that failed to queue. Failures here are the
+        // observer's own problem and must not fail the enqueue that already succeeded.
+        onEvent?.let { notify ->
+            runCatching { notify(name, properties, timestampMs) }
+                .onFailure { log.w("event observer failed", it) }
+        }
     }
 }

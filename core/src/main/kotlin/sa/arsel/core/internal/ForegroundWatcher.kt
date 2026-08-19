@@ -3,6 +3,7 @@ package sa.arsel.core.internal
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
+import java.lang.ref.WeakReference
 
 /**
  * Fires [onForeground] when the app comes back to the foreground.
@@ -24,6 +25,19 @@ internal class ForegroundWatcher(
     private val lock = Any()
     private var startedActivities = 0
     private var lastFiredAtMs = 0L
+
+    /**
+     * The Activity an in-app message can be drawn into.
+     *
+     * WEAK, and not negotiable: this watcher is held for the whole process lifetime by
+     * `registerActivityLifecycleCallbacks`, so a strong field would pin every Activity it ever saw
+     * and leak the view hierarchy with it.
+     */
+    private var current: WeakReference<Activity>? = null
+
+    /** Null when nothing is resumed — backgrounded, or a host with no Activity at all. */
+    val currentActivity: Activity?
+        get() = synchronized(lock) { current?.get() }
 
     fun attach(application: Application) {
         application.registerActivityLifecycleCallbacks(this)
@@ -62,16 +76,34 @@ internal class ForegroundWatcher(
         savedInstanceState: Bundle?,
     ): Unit = Unit
 
-    override fun onActivityResumed(activity: Activity): Unit = Unit
+    // RESUMED, not STARTED: a started-but-not-resumed Activity sits behind a dialog or a
+    // translucent Activity, and drawing into it puts the message underneath something.
+    override fun onActivityResumed(activity: Activity) {
+        synchronized(lock) { current = WeakReference(activity) }
+    }
 
-    override fun onActivityPaused(activity: Activity): Unit = Unit
+    override fun onActivityPaused(activity: Activity) {
+        clearIfCurrent(activity)
+    }
 
     override fun onActivitySaveInstanceState(
         activity: Activity,
         outState: Bundle,
     ): Unit = Unit
 
-    override fun onActivityDestroyed(activity: Activity): Unit = Unit
+    override fun onActivityDestroyed(activity: Activity) {
+        clearIfCurrent(activity)
+    }
+
+    /**
+     * Only clears when the departing Activity is the tracked one: A to B navigation resumes B
+     * before it pauses A, so an unconditional clear would drop B moments after taking it.
+     */
+    private fun clearIfCurrent(activity: Activity) {
+        synchronized(lock) {
+            if (current?.get() === activity) current = null
+        }
+    }
 
     private companion object {
         const val MIN_INTERVAL_MS = 30_000L

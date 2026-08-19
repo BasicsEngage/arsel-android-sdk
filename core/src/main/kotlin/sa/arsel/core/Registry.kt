@@ -5,6 +5,8 @@ import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import sa.arsel.core.inapp.InAppController
+import sa.arsel.core.inapp.InAppPresenter
 import sa.arsel.core.internal.EventController
 import sa.arsel.core.internal.ForegroundWatcher
 import sa.arsel.core.internal.PushController
@@ -42,6 +44,9 @@ internal object Registry {
         private set
     lateinit var sessions: SessionTracker
         private set
+
+    lateinit var inApp: InAppController
+        private set
     lateinit var scope: CoroutineScope
         private set
 
@@ -67,7 +72,11 @@ internal object Registry {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         queue = RequestQueue(appContext, store)
         controller = PushController(appContext, cfg, state, queue, scope, log)
-        events = EventController(state, store, queue::enqueue, log)
+        inApp = InAppController(cfg.clientKey, store, queue::enqueue, scope, log)
+        // The observer is passed into the constructor rather than attached later: Registry.init
+        // fires the cold-start session below, BEFORE Arsel.initialize returns, so anything wired
+        // from outside would miss the first arsel.session_start of every cold start.
+        events = EventController(state, store, queue::enqueue, log, inApp::onEvent)
         sessions = SessionTracker(store, events)
         initialized = true
         watchForeground()
@@ -75,6 +84,8 @@ internal object Registry {
         // onActivityStarted yet. Idempotent: the watcher's own foreground is then a no-op.
         runCatching { sessions.onForeground() }
             .onFailure { log.w("session start failed", it) }
+        runCatching { inApp.start() }
+            .onFailure { log.w("in-app start failed", it) }
     }
 
     /**
@@ -88,15 +99,23 @@ internal object Registry {
             log.w("application context is not an Application — permission changes will not be polled")
             return
         }
-        ForegroundWatcher(
-            clock = System::currentTimeMillis,
-            onForeground = {
-                controller.syncDeviceState()
-                runCatching { sessions.onForeground() }.onFailure { log.w("session start failed", it) }
-            },
-            onBackground = {
-                runCatching { sessions.onBackground() }.onFailure { log.w("session end failed", it) }
-            },
-        ).attach(application)
+        val watcher =
+            ForegroundWatcher(
+                clock = System::currentTimeMillis,
+                onForeground = {
+                    controller.syncDeviceState()
+                    runCatching { sessions.onForeground() }.onFailure { log.w("session start failed", it) }
+                },
+                onBackground = {
+                    runCatching { sessions.onBackground() }.onFailure { log.w("session end failed", it) }
+                },
+            )
+        watcher.attach(application)
+
+        // Wired only where a real Application exists: without lifecycle callbacks there is no way
+        // to know the top Activity, and drawing into a stale one is worse than not drawing. In-app
+        // then stays inert rather than crashing.
+        val presenter = InAppPresenter(inApp, { watcher.currentActivity }, log)
+        inApp.presenter = presenter::present
     }
 }
